@@ -1,0 +1,21 @@
+nohup: ignoring input
+Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/my_tool/my_project/app.py", line 3, in <module>
+    import google.generativeai as genai
+  File "/usr/local/lib/python3.13/dist-packages/google/generativeai/__init__.py", line 47, in <module>
+    from google.generativeai import caching
+  File "/usr/local/lib/python3.13/dist-packages/google/generativeai/caching.py", line 21, in <module>
+    from google.generativeai import protos
+  File "/usr/local/lib/python3.13/dist-packages/google/generativeai/protos.py", line 74, in <module>
+    from google.ai.generativelanguage_v1beta.types import *
+  File "/usr/local/lib/python3.13/dist-packages/google/ai/generativelanguage_v1beta/__init__.py", line 21, in <module>
+    from .services.cache_service import CacheServiceAsyncClient, CacheServiceClient
+  File "/usr/local/lib/python3.13/dist-packages/google/ai/generativelanguage_v1beta/services/cache_service/__init__.py", line 16, in <module>
+    from .async_client import CacheServiceAsyncClient
+  File "/usr/local/lib/python3.13/dist-packages/google/ai/generativelanguage_v1beta/services/cache_service/async_client.py", line 33, in <module>
+    from google.api_core import gapic_v1
+  File "/usr/local/lib/python3.13/dist-packages/google/api_core/gapic_v1/__init__.py", line 16, in <module>
+    from google.api_core.gapic_v1 import config
+  File "/usr/local/lib/python3.13/dist-packages/google/api_core/gapic_v1/config.py", line 23, in <module>
+    import grpc
+ModuleNotFoundError: No module named 'grpc'

@@ -1,0 +1,56 @@
+:root {
+    --neon-blue: #00f2fe;
+    --neon-purple: #bc8cff;
+    --dark-bg: #0d1117;
+}
+
+body {
+    background: var(--dark-bg);
+    color: white;
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    direction: rtl;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* شريط الأدوات العلوي */
+.nav-bar {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px;
+    background: rgba(22, 27, 34, 0.8);
+    border-bottom: 1px solid var(--neon-blue);
+}
+
+.chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* الرسائل */
+.message { padding: 12px; border-radius: 15px; max-width: 75%; }
+.user { background: var(--neon-blue); color: black; align-self: flex-start; }
+.ai { background: #161b22; border: 1px solid var(--neon-purple); align-self: flex-end; color: var(--neon-purple); }
+
+/* الزر السداسي */
+.hex-btn {
+    width: 60px; height: 60px;
+    background: linear-gradient(135deg, var(--neon-purple), var(--neon-blue));
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: fixed; bottom: 80px; left: 20px;
+    font-size: 10px; font-weight: bold; color: white;
+}
+
+/* صندوق الإدخال */
+.input-area {
+    padding: 15px; background: #161b22; display: flex; gap: 10px;
+}
+input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #333; background: #000; color: white; outline: none; }
+

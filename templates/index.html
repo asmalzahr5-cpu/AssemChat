@@ -1,0 +1,53 @@
+// 1. الاتصال بـ Socket.io
+const socket = io();
+let myUsername = prompt("أدخل اسمك للدخول إلى نظام Assem VIP:");
+socket.emit('join', {username: myUsername});
+
+// 2. تحديث قائمة الأشخاص المتصلين تلقائياً
+socket.on('update_users', function(userList) {
+    let content = document.querySelector('.main-content');
+    content.innerHTML = ''; // تنظيف القائمة
+    
+    userList.forEach(user => {
+        if(user === myUsername) return; // لا تظهر اسمك لنفسك
+        
+        content.innerHTML += `
+            <div class="chat-item" onclick="openPrivateChat('${user}')">
+                <div class="avatar">${user.charAt(0).toUpperCase()}</div>
+                <div class="chat-info">
+                    <h4>${user}</h4>
+                    <p style="color: var(--wa-green)">متصل الآن - انقر للمراسلة الخاصة</p>
+                </div>
+            </div>
+        `;
+    });
+});
+
+// 3. فتح نافذة دردشة خاصة
+function openPrivateChat(targetUser) {
+    document.getElementById('chat-interface').style.display = 'flex';
+    document.querySelector('.chat-header h4').innerHTML = targetUser + ' <span style="color:var(--cyber-blue);">PRIVATE</span>';
+    // تصفية الرسائل القديمة للبدء بصفحة جديدة
+    document.getElementById('chat-box').innerHTML = '<div class="msg bot-msg">بدأت محادثة خاصة مشفرة مع ' + targetUser + '</div>';
+    
+    // تغيير وظيفة زر الإرسال ليرسل للشخص بدلاً من الـ AI
+    document.querySelector('.input-area button').onclick = function() {
+        sendPrivateMsg(targetUser);
+    };
+}
+
+function sendPrivateMsg(target) {
+    let input = document.getElementById('user-input');
+    let msg = input.value;
+    if(!msg) return;
+    
+    socket.emit('private_message', {recipient: target, message: msg});
+    document.getElementById('chat-box').innerHTML += `<div class="msg user-msg">${msg}</div>`;
+    input.value = '';
+}
+
+socket.on('new_private_msg', function(data) {
+    // إذا كنت فاتح نافذة الشخص الذي أرسل لك
+    document.getElementById('chat-box').innerHTML += `<div class="msg bot-msg"><b>${data.sender}:</b> ${data.msg}</div>`;
+});
+
