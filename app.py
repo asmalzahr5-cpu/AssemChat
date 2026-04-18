@@ -3,7 +3,7 @@ from flask_socketio import SocketIO, emit, join_room
 import google.generativeai as genai
 import sqlite3
 import os
-from datetime import datetime, timedelta
+import os
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
