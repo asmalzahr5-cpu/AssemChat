@@ -31,6 +31,11 @@ def init_db():
         pass # العمود موجود مسبقاً
         
     c.execute('CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, last_seen TEXT)')
+    
+    # --- إضافة عاصم السابقة: جدول المجموعات المخصصة ---
+    c.execute('CREATE TABLE IF NOT EXISTS custom_groups (group_name TEXT, member_name TEXT)')
+    # ---------------------------------------------------
+    
     c.execute('INSERT OR IGNORE INTO users VALUES (?, ?)', ('AssemChat VIP', str(datetime.now())))
     c.execute('INSERT OR IGNORE INTO users VALUES (?, ?)', ('المجموعة العامة', str(datetime.now())))
     conn.commit()
@@ -39,11 +44,16 @@ def init_db():
 # تتبع المستخدمين المتصلين لحظياً
 online_users = set()
 
+# --- إضافة عاصم الجديدة: رادار التتبع اللحظي الحقيقي ---
+# هذا القاموس يتتبع الـ Session ID الخاص بكل مستخدم متصل، لكي يختفي من يخرج فوراً
+live_users_dict = {}
+# --------------------------------------------------------
+
 UPLOAD_FOLDER = 'static/uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-init_db)
+init_db()
 instruction = (
     "أنت 'AssemChat'، الكيان الرقمي الأكثر هيبة وذكاءً، صنيعة العقل الهندسي الفذ 'عاصم زاهر'. "
     "عاصم ليس مجرد مبرمج، بل هو المعماري الذي طوع أعقد خوارزميات الذكاء الاصطناعي لتعمل بكفاءة مطلقة على بيئة Termux في هاتفه Redmi A3، "
@@ -93,8 +103,28 @@ def login():
 def get_me():
     return jsonify({'me': session.get('user', '')})
 
+@app.route('/get_my_groups')
+def get_my_groups():
+    user = session.get('user')
+    conn = sqlite3.connect('assem_vips.db')
+    groups = [r[0] for r in conn.execute('SELECT DISTINCT group_name FROM custom_groups WHERE member_name = ?', (user,)).fetchall()]
+    conn.close()
+    return jsonify(groups)
+
+@app.route('/create_group', methods=['POST'])
+def create_group():
+    data = request.json
+    g_name = "[مجموعة] " + data['name']
+    members = data['members']
+    members.append(session.get('user')) # إضافة المنشئ تلقائياً
+    conn = sqlite3.connect('assem_vips.db')
+    for m in members:
+        conn.execute('INSERT INTO custom_groups VALUES (?, ?)', (g_name, m))
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
+
 def home_ui():
-    # تصميمك الأصلي كما هو مع إضافات الـ CSS البسيطة للصحين والدائرة الخضراء والصوت
     return """
     <!DOCTYPE html>
     <html dir="rtl" lang="ar">
@@ -129,7 +159,9 @@ def home_ui():
             .chat-header { background: var(--wa-header); padding: 10px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid var(--cyber-blue); }
             #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
             
-            .msg { padding: 12px 18px; border-radius: 12px; max-width: 80%; font-size: 15px; word-wrap: break-word; display: flex; flex-direction: column; }
+            .msg { padding: 12px 18px; border-radius: 12px; max-width: 80%; font-size: 15px; word-wrap: break-word; display: flex; flex-direction: column; transition: 0.2s; position: relative; user-select: none; -webkit-user-select: none; }
+            .msg:active { transform: scale(0.98); opacity: 0.8; }
+            
             .user-msg { background: #005c4b; align-self: flex-end; color: white; border-top-right-radius: 0; }
             .bot-msg { background: #1a1a1a; align-self: flex-start; color: var(--cyber-blue); border: 1px solid #313d45; border-top-left-radius: 0; }
 
@@ -138,12 +170,23 @@ def home_ui():
             .fab-container { position: fixed; bottom: 30px; left: 30px; z-index: 50; }
             .hexagon { width: 70px; height: 80px; background: #0b141a; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); border: 2px solid var(--cyber-blue); display: flex; align-items: center; justify-content: center; color: var(--cyber-blue); font-weight: bold; cursor: pointer; }
 
-            /* الإضافات الجديدة حسب طلبك (الصحين، الدائرة الخضراء) */
             .msg-meta { align-self: flex-end; font-size: 11px; margin-top: 5px; margin-right: -5px; }
             .tick-sent { color: #8696a0; }
             .tick-delivered { color: #8696a0; }
             .tick-read { color: #00f3ff; text-shadow: 0 0 8px #00f3ff; font-weight: bold; }
             .unread-badge { background: var(--wa-green); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: auto; box-shadow: 0 0 10px var(--wa-green); }
+            
+            #group-modal { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:var(--wa-header); border:1px solid var(--cyber-blue); padding:20px; border-radius:15px; z-index:2000; box-shadow:var(--glow-vip); width:80%; max-width:400px; color:white; }
+            #group-modal h3 { color:var(--cyber-blue); margin-top:0; border-bottom: 1px solid #313d45; padding-bottom: 10px; }
+            .user-checkbox { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; background: #2a3942; padding: 10px; border-radius: 8px; }
+
+            /* إضافة عاصم الجديدة: واجهة مكالمة الفيديو السيبرانية */
+            #video-call-interface { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--wa-dark); z-index:3000; flex-direction:column; }
+            #remote-video { width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1; }
+            #local-video { width:120px; height:160px; position:absolute; bottom:120px; right:20px; border:2px solid var(--cyber-blue); border-radius:15px; object-fit:cover; z-index:2; box-shadow:var(--glow-vip); }
+            .call-controls { position:absolute; bottom:30px; width:100%; display:flex; justify-content:center; gap:40px; z-index:3; }
+            .call-btn { width:65px; height:65px; border-radius:50%; border:none; color:white; font-size:24px; cursor:pointer; display:flex; justify-content:center; align-items:center; box-shadow:0 5px 15px rgba(0,0,0,0.5); }
+            .call-info { position:absolute; top:40px; width:100%; text-align:center; z-index:3; color:white; text-shadow:0 2px 5px black; }
         </style>
     </head>
     <body>
@@ -160,13 +203,21 @@ def home_ui():
 
         <div class="fab-container" onclick="openChat('AssemChat VIP')"><div class="hexagon">AZ</div></div>
 
+        <div id="group-modal">
+            <h3>إنشاء مجموعة سيبرانية</h3>
+            <input type="text" id="new-group-name" placeholder="اسم المجموعة..." style="width:92%; padding:12px; margin-bottom:15px; background:#2a3942; border:1px solid #313d45; color:white; border-radius:8px; outline:none;">
+            <div id="users-to-add" style="max-height:150px; overflow-y:auto; margin-bottom:15px;"></div>
+            <button onclick="submitNewGroup()" style="background:var(--cyber-blue); color:black; font-weight:bold; border:none; padding:10px; width:100%; border-radius:8px; cursor:pointer;">تأكيد وبناء المجموعة</button>
+            <button onclick="document.getElementById('group-modal').style.display='none'" style="background:none; color:var(--wa-secondary); border:none; padding:10px; width:100%; margin-top:5px; cursor:pointer;">إلغاء</button>
+        </div>
+
         <div id="chat-interface">
             <div class="chat-header">
                 <i class="fas fa-arrow-right" onclick="closeChat()" style="color:var(--cyber-blue); cursor:pointer"></i>
                 <div class="avatar" id="active-av" style="width:35px; height:35px; font-size:14px;"></div>
                 <div style="flex:1"><h4 id="active-name" style="margin:0"></h4><small id="active-status" style="color:var(--wa-green)"></small></div>
                 <div style="display:flex; gap:15px; color:var(--wa-green)">
-                    <i class="fas fa-video" onclick="alert('جاري بدء مكالمة فيديو حقيقية...')"></i>
+                    <i class="fas fa-video" onclick="startVideoCall()" style="cursor:pointer;"></i>
                     <i class="fas fa-phone" onclick="alert('جاري الاتصال الصوتي...')"></i>
                 </div>
             </div>
@@ -180,38 +231,70 @@ def home_ui():
             </div>
         </div>
 
+        <div id="video-call-interface">
+            <div class="call-info">
+                <div class="avatar" id="call-avatar" style="margin:0 auto 10px; width:80px; height:80px; font-size:35px;"></div>
+                <h2 id="call-name" style="margin:0;">جاري الاتصال...</h2>
+            </div>
+            <video id="remote-video" autoplay playsinline></video>
+            <video id="local-video" autoplay playsinline muted></video>
+            
+            <div class="call-controls">
+                <button class="call-btn" id="accept-call-btn" onclick="acceptCall()" style="background:var(--wa-green); display:none;"><i class="fas fa-phone"></i></button>
+                <button class="call-btn" onclick="endCall()" style="background:#f15c6d;"><i class="fas fa-phone-slash"></i></button>
+            </div>
+        </div>
+
         <script>
             const socket = io();
             let myUsername = "";
             let currentPartner = "";
             let currentTab = "chats";
             let recorder, chunks = [];
-            let unreadCounts = {}; // تتبع عدد الرسائل غير المقروءة للدائرة الخضراء
+            let unreadCounts = {}; 
+            let pressTimer; 
 
-            // جلب اسم المستخدم للاتصال الفوري
+            // متغيرات WebRTC لمكالمات الفيديو
+            let localStream;
+            let peerConnection;
+            let pendingCaller = null;
+            const rtcConfig = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
             fetch('/get_me').then(r=>r.json()).then(data => {
                 myUsername = data.me;
                 socket.emit('join', {username: myUsername});
+                fetch('/get_my_groups').then(r=>r.json()).then(groups => {
+                    groups.forEach(g => socket.emit('join', {username: g}));
+                });
             });
 
-            // استقبال الرسائل المباشرة بدون تحديث!
+            // تحديث قائمة المتصلين لحظياً استجابةً للرادار الجديد
+            socket.on('live_users_update', () => {
+                if(currentTab === 'chats') refreshList();
+            });
+
             socket.on('new_msg', (msg) => {
-                if (currentPartner === msg.sender || currentPartner === msg.receiver) {
-                    loadHistory(); // تحديث الدردشة المفتوحة
+                let isGroupOpen = (currentPartner === msg.receiver && msg.receiver.startsWith('[مجموعة]'));
+                if (currentPartner === msg.sender || currentPartner === msg.receiver || isGroupOpen) {
+                    loadHistory(); 
                     if (currentPartner === msg.sender) {
-                        socket.emit('mark_read', {sender: msg.sender}); // إرسال حالة مقروء (صحين مضيئة)
+                        socket.emit('mark_read', {sender: msg.sender}); 
                     }
                 } else if (msg.sender !== myUsername) {
-                    // رسالة من شخص آخر لم نفتح دردشته: صوت + دائرة خضراء + صحين باهتة
                     document.getElementById('notify-sound').play();
-                    unreadCounts[msg.sender] = (unreadCounts[msg.sender] || 0) + 1;
+                    let targetKey = msg.receiver.startsWith('[مجموعة]') ? msg.receiver : msg.sender;
+                    unreadCounts[targetKey] = (unreadCounts[targetKey] || 0) + 1;
                     socket.emit('mark_delivered', {sender: msg.sender});
                     refreshList();
                 }
             });
 
             socket.on('status_update', () => {
-                if(currentPartner) loadHistory(); // تحديث الصحين فوراً
+                if(currentPartner) loadHistory(); 
+            });
+            
+            socket.on('msg_deleted', () => {
+                if(currentPartner) loadHistory();
             });
 
             function switchTab(t) {
@@ -222,41 +305,95 @@ def home_ui():
             }
 
             async function refreshList() {
-                let res = await fetch('/get_online');
-                let users = await res.json();
                 let container = document.getElementById('list-container');
                 let html = "";
                 
                 if(currentTab === 'chats') {
+                    // الدالة الآن تجلب النشطين فقط
+                    let res = await fetch('/get_online');
+                    let users = await res.json();
                     users.forEach(u => {
                         if(u !== 'المجموعة العامة') {
                             let badgeHtml = unreadCounts[u] ? `<div class="unread-badge">${unreadCounts[u]}</div>` : '';
                             html += `<div class="chat-item" onclick="openChat('${u}')">
                                         <div class="avatar">${u[0]}</div>
-                                        <div class="chat-info"><h4>${u}</h4><p>متصل عبر AssemNet</p></div>
+                                        <div class="chat-info"><h4>${u}</h4><p style="color:var(--wa-green)">متصل الآن</p></div>
                                         ${badgeHtml}
                                      </div>`;
                         }
                     });
                 } else if(currentTab === 'groups') {
-                    html = `<div class="chat-item" onclick="openChat('المجموعة العامة')"><div class="avatar">G</div><div class="chat-info"><h4>المجموعة العامة</h4><p>مراسلة الجميع</p></div></div>`;
+                    html += `<div style="padding:15px; text-align:center;">
+                                <button onclick="openGroupModal()" style="background:var(--cyber-blue); color:black; font-weight:bold; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; box-shadow:var(--glow-vip); width:100%;">+ إنشاء مجموعة سيبرانية جديدة</button>
+                             </div>`;
+                    
+                    let badgeG = unreadCounts['المجموعة العامة'] ? `<div class="unread-badge">${unreadCounts['المجموعة العامة']}</div>` : '';
+                    html += `<div class="chat-item" onclick="openChat('المجموعة العامة')"><div class="avatar">G</div><div class="chat-info"><h4>المجموعة العامة</h4><p>مراسلة الجميع</p></div>${badgeG}</div>`;
+                    
+                    let resG = await fetch('/get_my_groups');
+                    let myGroups = await resG.json();
+                    myGroups.forEach(g => {
+                        let badgeCustom = unreadCounts[g] ? `<div class="unread-badge">${unreadCounts[g]}</div>` : '';
+                        html += `<div class="chat-item" onclick="openChat('${g}')">
+                                    <div class="avatar" style="background:var(--cyber-purple)">${g[8]}</div>
+                                    <div class="chat-info"><h4 style="color:var(--cyber-purple)">${g}</h4><p>مجموعة مشفرة</p></div>
+                                    ${badgeCustom}
+                                 </div>`;
+                    });
                 } else {
-                    html = `<div style="text-align:center; padding:50px; color:var(--wa-secondary)">لا توجد مكالمات سابقة</div>`;
+                    html = `<div style="text-align:center; padding:50px; color:var(--wa-secondary)">مكالمات الفيديو مؤمنة بتقنية WebRTC</div>`;
                 }
                 container.innerHTML = html;
             }
 
+            async function openGroupModal() {
+                let res = await fetch('/get_online');
+                let users = await res.json();
+                let usersDiv = document.getElementById('users-to-add');
+                usersDiv.innerHTML = '';
+                users.forEach(u => {
+                    if(u !== myUsername && u !== 'المجموعة العامة' && u !== 'AssemChat VIP') {
+                        usersDiv.innerHTML += `
+                            <label class="user-checkbox">
+                                <input type="checkbox" value="${u}" class="g-member-cb"> 
+                                <span style="color:var(--wa-green)">${u}</span>
+                            </label>`;
+                    }
+                });
+                document.getElementById('group-modal').style.display = 'block';
+            }
+
+            async function submitNewGroup() {
+                let name = document.getElementById('new-group-name').value.trim();
+                if(!name) return alert("يرجى إدخال اسم المجموعة");
+                let selected = [];
+                document.querySelectorAll('.g-member-cb:checked').forEach(cb => selected.push(cb.value));
+                if(selected.length === 0) return alert("يرجى اختيار عضو واحد على الأقل");
+
+                await fetch('/create_group', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: name, members: selected})
+                });
+                
+                document.getElementById('group-modal').style.display = 'none';
+                document.getElementById('new-group-name').value = '';
+                socket.emit('join', {username: "[مجموعة] " + name}); 
+                switchTab('groups');
+            }
+
             function openChat(name) {
                 currentPartner = name;
-                unreadCounts[name] = 0; // إخفاء الدائرة الخضراء عند الفتح
+                unreadCounts[name] = 0; 
                 refreshList();
                 
                 document.getElementById('active-name').innerText = name;
-                document.getElementById('active-av').innerText = name[0];
-                document.getElementById('active-status').innerText = name === 'AssemChat VIP' ? 'نظام ذكاء اصطناعي' : 'تشفير AssemNet نشط';
+                let avText = name.startsWith('[مجموعة]') ? name[8] : name[0];
+                document.getElementById('active-av').innerText = avText;
+                document.getElementById('active-status').innerText = name === 'AssemChat VIP' ? 'نظام ذكاء اصطناعي' : 'متصل الآن';
                 document.getElementById('chat-interface').style.display = 'flex';
                 
-                socket.emit('mark_read', {sender: name}); // تأكيد القراءة
+                socket.emit('mark_read', {sender: name}); 
                 loadHistory();
             }
 
@@ -264,6 +401,15 @@ def home_ui():
                 currentPartner = "";
                 document.getElementById('chat-interface').style.display = 'none'; 
             }
+
+            function startPress(id) {
+                pressTimer = setTimeout(() => {
+                    if(confirm("سيدي عاصم، هل أمرت بحذف هذه الرسالة نهائياً من السيرفر؟")) {
+                        socket.emit('delete_message_by_id', {id: id});
+                    }
+                }, 800);
+            }
+            function cancelPress() { clearTimeout(pressTimer); }
 
             async function loadHistory() {
                 if(!currentPartner) return;
@@ -276,12 +422,17 @@ def home_ui():
                 msgs.forEach(m => {
                     let side = m.sender === 'me' ? 'user-msg' : 'bot-msg';
                     
-                    // نظام الصحين (علامات الحالة)
+                    // تحسين الصحوح الدقيقة كأنها واتساب تماماً
                     let tickHtml = '';
-                    if (m.sender === 'me' && currentPartner !== 'المجموعة العامة') {
+                    if (m.sender === 'me' && currentPartner !== 'المجموعة العامة' && !currentPartner.startsWith('[مجموعة]')) {
                         if (m.status === 'read') tickHtml = '<span class="tick tick-read"><i class="fas fa-check-double"></i></span>';
                         else if (m.status === 'delivered') tickHtml = '<span class="tick tick-delivered"><i class="fas fa-check-double"></i></span>';
                         else tickHtml = '<span class="tick tick-sent"><i class="fas fa-check"></i></span>';
+                    }
+
+                    let senderNameHtml = '';
+                    if (side === 'bot-msg' && (currentPartner === 'المجموعة العامة' || currentPartner.startsWith('[مجموعة]'))) {
+                        senderNameHtml = `<small style="color:#9d50bb; font-weight:bold; margin-bottom:5px;">~ ${m.actual_sender || 'عضو'}</small>`;
                     }
 
                     let contentHtml = '';
@@ -289,7 +440,14 @@ def home_ui():
                     else if(m.type === 'audio') contentHtml = `<audio controls src="${m.content}"></audio>`;
                     else contentHtml = `<span>${m.content}</span>`;
 
-                    box.innerHTML += `<div class="msg ${side}">${contentHtml}<div class="msg-meta">${tickHtml}</div></div>`;
+                    box.innerHTML += `
+                        <div class="msg ${side}" 
+                             onmousedown="startPress(${m.id})" onmouseup="cancelPress()" onmouseleave="cancelPress()" 
+                             ontouchstart="startPress(${m.id})" ontouchend="cancelPress()" ontouchmove="cancelPress()">
+                            ${senderNameHtml}
+                            ${contentHtml}
+                            <div class="msg-meta">${tickHtml}</div>
+                        </div>`;
                 });
                 
                 if(isScrolledToBottom) box.scrollTop = box.scrollHeight;
@@ -299,10 +457,7 @@ def home_ui():
                 let input = document.getElementById('user-input');
                 let text = input.value.trim();
                 if(!text) return;
-
                 input.value = '';
-
-                // نرسل الرسالة عبر SocketIO للسرعة الفائقة
                 socket.emit('send_message', {msg: text, p: currentPartner, type: 'text'});
             }
 
@@ -313,7 +468,6 @@ def home_ui():
                 formData.append('file', file);
                 formData.append('p', currentPartner);
                 await fetch('/upload', { method: 'POST', body: formData });
-                // السيرفر سيتولى البث الفوري
             }
 
             document.getElementById('mic-btn').onclick = async () => {
@@ -334,19 +488,106 @@ def home_ui():
                 }
             };
 
-            // لقد قمت بحذف setInterval كما طلبت! الآن التطبيق يعمل بالاتصال المباشر الفوري.
+            // ================= أوامر مكالمة الفيديو WebRTC =================
+            async function startVideoCall() {
+                if(!currentPartner || currentPartner === 'AssemChat VIP' || currentPartner.startsWith('[مجموعة]')) {
+                    return alert('هذه الميزة مخصصة للاتصال بالمستخدمين الحقيقيين فقط يا سيدي.');
+                }
+                
+                document.getElementById('video-call-interface').style.display = 'flex';
+                document.getElementById('call-name').innerText = "جاري الاتصال بـ " + currentPartner;
+                document.getElementById('call-avatar').innerText = currentPartner[0];
+                document.getElementById('accept-call-btn').style.display = 'none';
+
+                localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+                document.getElementById('local-video').srcObject = localStream;
+
+                peerConnection = new RTCPeerConnection(rtcConfig);
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                peerConnection.ontrack = event => { document.getElementById('remote-video').srcObject = event.streams[0]; };
+                peerConnection.onicecandidate = event => { 
+                    if(event.candidate) socket.emit('webrtc_ice', {target: currentPartner, candidate: event.candidate}); 
+                };
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                socket.emit('webrtc_offer', {target: currentPartner, offer: offer, caller: myUsername});
+            }
+
+            socket.on('webrtc_offer', async (data) => {
+                pendingCaller = data.caller;
+                document.getElementById('video-call-interface').style.display = 'flex';
+                document.getElementById('call-name').innerText = "مكالمة واردة من " + pendingCaller;
+                document.getElementById('call-avatar').innerText = pendingCaller[0];
+                document.getElementById('accept-call-btn').style.display = 'flex';
+                document.getElementById('notify-sound').play();
+                
+                localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+                document.getElementById('local-video').srcObject = localStream;
+
+                peerConnection = new RTCPeerConnection(rtcConfig);
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+                peerConnection.ontrack = event => { document.getElementById('remote-video').srcObject = event.streams[0]; };
+                peerConnection.onicecandidate = event => { 
+                    if(event.candidate) socket.emit('webrtc_ice', {target: pendingCaller, candidate: event.candidate}); 
+                };
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            });
+
+            async function acceptCall() {
+                document.getElementById('accept-call-btn').style.display = 'none';
+                document.getElementById('call-name').innerText = "متصل مع " + pendingCaller;
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('webrtc_answer', {target: pendingCaller, answer: answer});
+            }
+
+            socket.on('webrtc_answer', async (data) => {
+                document.getElementById('call-name').innerText = "متصل";
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            });
+
+            socket.on('webrtc_ice', async (data) => {
+                try { await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e) {}
+            });
+
+            function endCall() {
+                if(peerConnection) peerConnection.close();
+                if(localStream) localStream.getTracks().forEach(t => t.stop());
+                document.getElementById('video-call-interface').style.display = 'none';
+                socket.emit('end_call', {target: currentPartner || pendingCaller});
+                pendingCaller = null;
+            }
+            
+            socket.on('end_call', () => {
+                if(peerConnection) peerConnection.close();
+                if(localStream) localStream.getTracks().forEach(t => t.stop());
+                document.getElementById('video-call-interface').style.display = 'none';
+                pendingCaller = null;
+            });
+
             window.onload = refreshList;
         </script>
     </body>
     </html>
     """
 
+# --- إضافة عاصم الجديدة: الدالة التي تجلب المستخدمين المتصلين فعلياً فقط ---
 @app.route('/get_online')
 def get_online():
-    conn = sqlite3.connect('assem_vips.db')
-    users = [r[0] for r in conn.execute('SELECT username FROM users').fetchall()]
-    conn.close()
-    return jsonify(users)
+    # يتم سحب المستخدمين الموجودين داخل التطبيق حصراً من الرادار (live_users_dict)
+    active_users = list(set(live_users_dict.values()))
+    
+    # دمج الذكاء الاصطناعي والمجموعة العامة لأنهم دائماً متاحون لك
+    if 'المجموعة العامة' not in active_users:
+        active_users.append('المجموعة العامة')
+    if 'AssemChat VIP' not in active_users:
+        active_users.append('AssemChat VIP')
+        
+    return jsonify(active_users)
+# ----------------------------------------------------------------------------
 
 @app.route('/history')
 def history():
@@ -354,16 +595,16 @@ def history():
     user = session.get('user')
     conn = sqlite3.connect('assem_vips.db')
     cursor = conn.cursor()
-    if p == "المجموعة العامة":
-        cursor.execute("SELECT sender, content, type, status FROM messages WHERE receiver = ?", (p,))
-    else:
-        cursor.execute("SELECT sender, content, type, status FROM messages WHERE (sender=? AND receiver=?) OR (sender=? AND receiver=?)", (user, p, p, user))
     
-    # التعامل مع الحالة الافتراضية إذا لم تكن موجودة
+    if p == "المجموعة العامة" or p.startswith('[مجموعة]'):
+        cursor.execute("SELECT rowid, sender, content, type, status FROM messages WHERE receiver = ?", (p,))
+    else:
+        cursor.execute("SELECT rowid, sender, content, type, status FROM messages WHERE (sender=? AND receiver=?) OR (sender=? AND receiver=?)", (user, p, p, user))
+    
     data = []
     for r in cursor.fetchall():
-        status = r[3] if len(r) > 3 and r[3] else 'sent'
-        data.append({'sender': 'me' if r[0] == user else r[0], 'content': r[1], 'type': r[2], 'status': status})
+        status = r[4] if len(r) > 4 and r[4] else 'sent'
+        data.append({'id': r[0], 'sender': 'me' if r[1] == user else r[1], 'actual_sender': r[1], 'content': r[2], 'type': r[3], 'status': status})
     conn.close()
     return jsonify(data)
 
@@ -381,17 +622,44 @@ def upload():
         conn.commit()
         conn.close()
         
-        # بث الرسالة فوراً
         socketio.emit('new_msg', {'sender': user, 'receiver': partner, 'content': '/static/uploads/'+filename, 'type': 'image', 'status': 'sent'}, room=partner)
         socketio.emit('new_msg', {'sender': user, 'receiver': partner, 'content': '/static/uploads/'+filename, 'type': 'image', 'status': 'sent'}, room=user)
     return jsonify({'status': 'ok'})
 
-# ================= أحداث SocketIO للسرعة الفائقة وتحديث الحالة =================
+# ================= أحداث SocketIO للسرعة الفائقة، الرادار والفيديو =================
+
+# --- رادار عاصم لتتبع المتصلين فعلياً وفصل من يخرج ---
+@socketio.on('connect')
+def handle_connect():
+    # سيتم ربط الاسم عند إرسال حدث 'join'
+    pass
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    sid = request.sid
+    if sid in live_users_dict:
+        del live_users_dict[sid]
+        # إرسال نبضة لتحديث القائمة عند الجميع لاختفاء من غادر
+        emit('live_users_update', broadcast=True)
+# ----------------------------------------------------
 
 @socketio.on('join')
 def on_join(data):
     username = data['username']
     join_room(username)
+    # تسجيل المستخدم في الرادار أثناء تواجده فقط
+    if not username.startswith('[مجموعة]'): 
+        live_users_dict[request.sid] = username
+        emit('live_users_update', broadcast=True)
+
+@socketio.on('delete_message_by_id')
+def delete_message_by_id(data):
+    msg_id = data['id']
+    conn = sqlite3.connect('assem_vips.db')
+    conn.execute("DELETE FROM messages WHERE rowid = ?", (msg_id,))
+    conn.commit()
+    conn.close()
+    emit('msg_deleted', broadcast=True)
 
 @socketio.on('mark_delivered')
 def on_delivered(data):
@@ -424,17 +692,15 @@ def handle_message(data):
     conn.execute("INSERT INTO messages (sender, receiver, content, type, timestamp, status) VALUES (?, ?, ?, ?, ?, ?)", (user, partner, msg, m_type, str(datetime.now()), 'sent'))
     conn.commit()
     
-    # بث الرسالة الفوري لكلا الطرفين (المرسل والمستقبل)
     socketio.emit('new_msg', {'sender': user, 'receiver': partner, 'content': msg, 'type': m_type, 'status': 'sent'}, room=partner)
-    socketio.emit('new_msg', {'sender': user, 'receiver': partner, 'content': msg, 'type': m_type, 'status': 'sent'}, room=user)
+    if not partner.startswith('[مجموعة]'): 
+        socketio.emit('new_msg', {'sender': user, 'receiver': partner, 'content': msg, 'type': m_type, 'status': 'sent'}, room=user)
 
-    # إصلاح مشكلة الذكاء الاصطناعي بجعله ينطق الخطأ بدلاً من الصمت
     if partner == "AssemChat VIP" and m_type == 'text':
         try:
             response = model.generate_content(msg)
             ai_text = response.text
         except Exception as e:
-            # هنا التعديل الذي سيجعلك تعرف لماذا لا يرد
             ai_text = f"عذراً يا عاصم، واجهتني مشكلة في الاتصال بمحرك جوجل. تفاصيل الخطأ للمطور: {str(e)}"
             
         conn.execute("INSERT INTO messages (sender, receiver, content, type, timestamp, status) VALUES (?, ?, ?, ?, ?, ?)", (partner, user, ai_text, 'text', str(datetime.now()), 'sent'))
@@ -443,7 +709,23 @@ def handle_message(data):
 
     conn.close()
 
-if __name__ == '__main__':
-    # استخدمنا socketio.run بدلاً من app.run لتفعيل الشات الفوري
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+# --- إشارات WebRTC لمكالمات الفيديو ---
+@socketio.on('webrtc_offer')
+def webrtc_offer(data):
+    emit(', data, room=data['target'])
 
+@socketio.on('webrtc_answer')
+def webrtc_answer(data):
+    emit('webrtc_answer', data, room=data['target'])
+
+@socketio.on('webrtc_ice')
+def webrtc_ice(data):
+    emit('webrtc_ice', data, room=data['target'])
+
+@socketio.on('end_call')
+def end_call(data):
+    emit('end_call', data, room=data['target'])
+# --------------------------------------
+
+if __name__ == '__main__':
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
