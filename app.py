@@ -712,7 +712,7 @@ def handle_message(data):
 # --- إشارات WebRTC لمكالمات الفيديو ---
 @socketio.on('webrtc_offer')
 def webrtc_offer(data):
-    emit(', data, room=data['target'])
+    emit('webrtc_offer', data, room=data['target'])
 
 @socketio.on('webrtc_answer')
 def webrtc_answer(data):
