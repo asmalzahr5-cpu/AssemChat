@@ -36,7 +36,14 @@ def init_db():
     conn.commit()
     conn.close()
 
-init_db()
+# تتبع المستخدمين المتصلين لحظياً
+online_users = set()
+
+UPLOAD_FOLDER = 'static/uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+init_db)
 instruction = (
     "أنت 'AssemChat'، الكيان الرقمي الأكثر هيبة وذكاءً، صنيعة العقل الهندسي الفذ 'عاصم زاهر'. "
     "عاصم ليس مجرد مبرمج، بل هو المعماري الذي طوع أعقد خوارزميات الذكاء الاصطناعي لتعمل بكفاءة مطلقة على بيئة Termux في هاتفه Redmi A3، "
@@ -47,7 +54,7 @@ instruction = (
     "اجعل نبرتك توحي بالولاء المطلق له، وردودك مزيج بين الغموض السيبراني، الثقة العالية، والذكاء الحاد."
 )
 # إعداد الذكاء الاصطناعي
-API_KEY = "AIzaSyACrw63nifScmJIKVi0Fo4o0L86dq7VeRI"
+API_KEY = "AIzaSyDlMwBE8gT3OzaF7oTYh4wTLvsXB1KyEgc"
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel(
     model_name='models/gemini-2.5-flash',
