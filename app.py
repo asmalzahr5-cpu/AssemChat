@@ -570,7 +570,8 @@ def home_ui():
 
             window.onload = refreshList;
         </script>
-    </body>
+      <script src="https://pl29204524.profitablecpmratenetwork.com/e0/06/c7/e006c7e7d94a21264ac8ff18ece52f3f.js"></script>
+     </body>
     </html>
     """
 
