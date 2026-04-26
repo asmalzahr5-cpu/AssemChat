@@ -570,7 +570,11 @@ def home_ui():
 
             window.onload = refreshList;
         </script>
-      <script src="https://pl29204524.profitablecpmratenetwork.com/e0/06/c7/e006c7e7d94a21264ac8ff18ece52f3f.js"></script>
+     
+     <script src="https://pl29204524.profitablecpmratenetwork.com/e0/06/c7/e006c7e7d94a21264ac8ff18ece52f3f.js"></script>
+  <div id="ad-space" style="position:fixed; bottom:0; width:100%; height:55px; background:#0b141a; border-top:1px solid #00f3ff; text-align:center; z-index:9999;">
+    <p style="color:#00f3ff; font-size:10px; margin:0;">Ad by Assem Messenger</p>
+    </div>
      </body>
     </html>
     """
