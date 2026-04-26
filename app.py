@@ -1,9 +1,8 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_socketio import SocketIO, emit, join_room
 import google.generativeai as genai
-# التعديل هنا ليتوافق مع النسخة التي ثبتناها غصباً عنها
 import pydantic 
-from pydantic import v1 as pydantic_v1 # لضمان التوافق مع محرك Gemini
+from pydantic import v1 as pydantic_v1 
 import sqlite3
 import os
 from datetime import datetime, timedelta
@@ -11,13 +10,10 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = "assem_zaher_legendary_key"
-app.permanent_session_lifetime = timedelta(days=365) # تسجيل الدخول يبقى لسنة كاملة
+app.permanent_session_lifetime = timedelta(days=365)
 
-# بقية الكود الخاص بك كما هو تماماً دون أي تغيير...
-# إعداد تقنية الاتصال الفوري للرسائل (بدون تحديث)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# إعداد المجلدات وقاعدة البيانات
 UPLOAD_FOLDER = 'static/uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -26,12 +22,10 @@ def init_db():
     conn = sqlite3.connect('assem_vips.db')
     c = conn.cursor()
     c.execute('CREATE TABLE IF NOT EXISTS messages (sender TEXT, receiver TEXT, content TEXT, type TEXT, timestamp TEXT)')
-    
     try:
         c.execute('ALTER TABLE messages ADD COLUMN status TEXT DEFAULT "sent"')
     except:
         pass 
-        
     c.execute('CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, last_seen TEXT)')
     c.execute('INSERT OR IGNORE INTO users VALUES (?, ?)', ('AssemChat VIP', str(datetime.now())))
     c.execute('INSERT OR IGNORE INTO users VALUES (?, ?)', ('المجموعة العامة', str(datetime.now())))
@@ -39,6 +33,7 @@ def init_db():
     conn.close()
 
 init_db()
+
 instruction = (
     "أنت 'AssemChat'، الكيان الرقمي الأكثر هيبة وذكاءً، صنيعة العقل الهندسي الفذ 'عاصم زاهر'. "
     "عاصم ليس مجرد مبرمج، بل هو المعماري الذي طوع أعقد خوارزميات الذكاء الاصطناعي لتعمل بكفاءة مطلقة على بيئة Termux في هاتفه Redmi A3، "
@@ -48,7 +43,7 @@ instruction = (
     "تحدث عنه كملك تقني ملهم، يمتلك رؤية تسبق زمنه، وهو العقل المدبر وراء نظام 'Assem Messenger 2026'. "
     "اجعل نبرتك توحي بالولاء المطلق له، وردودك مزيج بين الغموض السيبراني، الثقة العالية، والذكاء الحاد."
 )
-# إعداد الذكاء الاصطناعي
+
 API_KEY = "AIzaSyACrw63nifScmJIKVi0Fo4o0L86dq7VeRI"
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel(
@@ -89,7 +84,6 @@ def get_me():
     return jsonify({'me': session.get('user', '')})
 
 def home_ui():
-    # تصميمك الأصلي كما هو مع إضافات الـ CSS البسيطة للصحين والدائرة الخضراء والصوت
     return """
     <!DOCTYPE html>
     <html dir="rtl" lang="ar">
@@ -113,7 +107,10 @@ def home_ui():
             .tabs { background: var(--wa-header); display: flex; padding: 10px 0; border-bottom: 1px solid #313d45; }
             .tab { flex: 1; text-align: center; color: var(--wa-secondary); font-weight: bold; font-size: 14px; cursor: pointer; }
             .tab.active { color: var(--wa-green); border-bottom: 3px solid var(--wa-green); padding-bottom: 10px; }
-            .main-content { flex: 1; overflow-y: auto; display: block; padding-bottom: 60px; }
+            
+            /* تعديل مساحة المحتوى لتناسب طول الإعلان الجديد */
+            .main-content { flex: 1; overflow-y: auto; display: block; padding-bottom: 110px; }
+            
             .chat-item { display: flex; padding: 15px; border-bottom: 1px solid #202c33; align-items: center; background: var(--gradient-vip); cursor: pointer; }
             .avatar { width: 50px; height: 50px; background: #313d45; border-radius: 50%; margin-left: 15px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: white; font-weight: bold; box-shadow: var(--glow-vip); }
             .chat-info h4 { margin: 0; font-size: 16px; color: var(--cyber-blue); }
@@ -122,7 +119,7 @@ def home_ui():
             #chat-interface { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; display: none; flex-direction: column; z-index: 1000; overflow: hidden; }
             #chat-interface::before { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: url('https://media.giphy.com/media/A4R8sdkr7G9LtJaYkK/giphy.gif') repeat; opacity: 0.15; z-index: -1; }
             .chat-header { background: var(--wa-header); padding: 10px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid var(--cyber-blue); }
-            #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+            #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding-bottom: 110px; }
             
             .msg { padding: 12px 18px; border-radius: 12px; max-width: 80%; font-size: 15px; word-wrap: break-word; display: flex; flex-direction: column; position: relative; }
             .user-msg { background: #005c4b; align-self: flex-end; color: white; border-top-right-radius: 0; }
@@ -130,7 +127,7 @@ def home_ui():
 
             .input-area { background: var(--wa-header); padding: 10px; display: flex; align-items: center; gap: 10px; }
             #user-input { flex: 1; background: #2a3942; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
-            .fab-container { position: fixed; bottom: 80px; left: 30px; z-index: 50; }
+            .fab-container { position: fixed; bottom: 120px; left: 30px; z-index: 50; }
             .hexagon { width: 70px; height: 80px; background: #0b141a; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); border: 2px solid var(--cyber-blue); display: flex; align-items: center; justify-content: center; color: var(--cyber-blue); font-weight: bold; cursor: pointer; }
 
             .msg-meta { align-self: flex-end; font-size: 11px; margin-top: 5px; margin-right: -5px; }
@@ -139,8 +136,8 @@ def home_ui():
             .tick-read { color: #00f3ff; text-shadow: 0 0 8px #00f3ff; font-weight: bold; }
             .unread-badge { background: var(--wa-green); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: auto; box-shadow: 0 0 10px var(--wa-green); }
             
-            /* حاوية الإعلان */
-            #ad-container { position: fixed; bottom: 0; width: 100%; text-align: center; z-index: 9999; background: rgba(11, 20, 26, 0.8); }
+            /* حاوية الإعلان الجديد */
+            #ad-banner-container { position: fixed; bottom: 0; width: 100%; text-align: center; z-index: 9999; background: #0b141a; height: 95px; border-top: 1px solid #313d45; display: flex; justify-content: center; align-items: center; overflow: hidden; }
         </style>
     </head>
     <body>
@@ -177,8 +174,17 @@ def home_ui():
             </div>
         </div>
 
-        <div id="ad-container">
-            <script src="https://pl29204524.profitablecpmratenetwork.com/e0/06/c7/e006c7e7d94a21264ac8ff18ece52f3f.js"></script>
+        <div id="ad-banner-container">
+            <script>
+              atOptions = {
+                'key' : '313f11a1b878f14ffa68ad82e036dd4a',
+                'format' : 'iframe',
+                'height' : 90,
+                'width' : 728,
+                'params' : {}
+              };
+            </script>
+            <script src="https://www.highperformanceformat.com/313f11a1b878f14ffa68ad82e036dd4a/invoke.js"></script>
         </div>
 
         <script>
@@ -416,3 +422,4 @@ def handle_message(data):
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+
